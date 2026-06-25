@@ -5,7 +5,7 @@
 使用者每日步行數據，透過 **HL7 FHIR（R4）** 轉譯為可信的健康憑證（`Observation`），
 依固定規則發放「健康幣」；健康幣僅能於特約健康商店核銷營養品、醫療輔具等健康物資，
 **不可兌換現金、不可轉讓、僅限白名單健康物資**。所有資料以標準 FHIR 資源儲存並上傳至
-FHIR R4 伺服器（預設 `https://tzuchi-fhir.ddns.net/fhir`）。
+你指定的 FHIR R4 伺服器（由環境變數 `FHIR_BASE_URL` 設定，**必填、無預設值**）。
 
 ```
 穿戴/手機/手環 ──► 4 個操作端（HTML）──► Node.js 後端（兩子系統）──► FHIR R4 伺服器
@@ -60,9 +60,14 @@ FHIR R4 伺服器（預設 `https://tzuchi-fhir.ddns.net/fhir`）。
 需求：Node.js 18 以上（內建 `fetch` 與 `crypto.randomUUID`）。
 
 ```bash
-npm install        # 僅 express
-npm start          # 預設 http://localhost:3100
+npm install                  # 僅 express
+cp .env.example .env         # 複製設定範本
+# 編輯 .env，填入 FHIR_BASE_URL（必填、無預設值）
+npm start                    # 預設 http://localhost:3100
 ```
+
+> ⚠ **`FHIR_BASE_URL` 為必填**：未設定時 `npm start` / `npm run seed` 會印出錯誤並中止（exit 1）。
+> 啟動時會自動載入專案根目錄的 `.env`（無相依套件、不需安裝 dotenv；**已存在的環境變數優先**）。
 
 開啟瀏覽器：
 
@@ -81,10 +86,10 @@ npm run seed
 會建立企劃書情境的範例（小明／林阿公／王阿嬤），完成發幣與一筆核銷，
 並印出各自的 `walletId`，於消費者 App 貼上即可操作。
 
-> ⚠ **網路需求**：預設 `FHIR_BASE_URL` 指向 `https://tzuchi-fhir.ddns.net/fhir`。
-> 請在**能連線該伺服器的電腦**執行 `npm start` / `npm run seed`。
-> 若於受限環境（雲端沙箱等）外連被擋，請改用 `npm test`（內建記憶體版 FHIR 跑完整流程），
-> 或將 `FHIR_BASE_URL` 指向可連線的 FHIR R4 伺服器。
+> ⚠ **網路需求**：請先將 `FHIR_BASE_URL` 指向可連線且允許寫入的 FHIR R4 伺服器
+> （例如慈濟測試站 `https://tzuchi-fhir.ddns.net/fhir` 或公開的 `https://hapi.fhir.org/baseR4`），
+> 並在**能連線該伺服器的電腦**執行 `npm start` / `npm run seed`。
+> 若於受限環境（雲端沙箱等）外連被擋，請改用 `npm test`（內建記憶體版 FHIR 跑完整流程）。
 
 ## 操作流程（對應四大情境）
 
@@ -93,14 +98,15 @@ npm run seed
 3. **情境三・特約店核銷**：POS 掃 `walletId` → 選白名單健康物資 → 核銷扣款（匿名、不顯示姓名）。
 4. **情境四・家屬防禦**：卡片遺失時，App **一鍵凍結**（→ `on-hold`）；POS 對凍結帳戶／非白名單品項／超單日上限**自動攔截並通知家屬**。
 
-## 設定（環境變數，皆有預設值）
+## 設定（環境變數）
 
 複製 `.env.example` 為 `.env` 後可覆寫；或直接以環境變數帶入。
+啟動時會自動載入根目錄 `.env`（無相依套件；**已存在的環境變數優先**）。
 
 | 變數 | 預設 | 說明 |
 |------|------|------|
 | `PORT` | `3100` | 後端服務埠 |
-| `FHIR_BASE_URL` | `https://tzuchi-fhir.ddns.net/fhir` | 目標 FHIR 伺服器 |
+| `FHIR_BASE_URL` | **（必填、無預設）** | 目標 FHIR 伺服器；未設定則 `npm start`／`npm run seed` 報錯中止（exit 1） |
 | `TENANT_TAG` | `healthvault-demo` | 租戶標記（多人共用伺服器請改唯一字串） |
 | `STEPS_PER_COIN` | `1000` | 發幣匯率 |
 | `AEROBIC_WEIGHT` | `1.2` | 有氧加權上限 |

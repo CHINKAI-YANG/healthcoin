@@ -4,6 +4,14 @@
 import { createApp } from '../server.js';
 import { config } from '../src/config.js';
 
+if (!config.fhirBaseUrl) {
+  console.error('\n[設定錯誤] 未設定 FHIR_BASE_URL —— 灌入範例資料需要可寫入的 FHIR 伺服器位址（必填，無預設值）。');
+  console.error('請於專案根目錄建立 .env（可複製 .env.example）並填入，或以環境變數帶入，例如：');
+  console.error('  FHIR_BASE_URL=https://tzuchi-fhir.ddns.net/fhir   # 慈濟 FHIR 測試站');
+  console.error('  FHIR_BASE_URL=https://hapi.fhir.org/baseR4        # 公開 HAPI 測試站\n');
+  process.exit(1);
+}
+
 const app = createApp();
 const srv = app.listen(0);
 const base = `http://127.0.0.1:${srv.address().port}`;

@@ -1,4 +1,4 @@
-# 健康幣 HealthVault — 以 FHIR 打造的封閉型健康點數平台
+# 健康幣 HealthCoin — 以 FHIR 打造的封閉型健康點數平台
 
 > 走路賺幣・以運動換健康資產。依《健康幣 HealthVault 專案企劃書 v1.0》實作。
 

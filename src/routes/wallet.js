@@ -1,4 +1,5 @@
 // /api/wallet — 錢包查詢與家屬防禦（消費者 App / 家屬端）。
+//   POST /login               消費者登入：手機號碼 + PIN → walletId
 //   GET  /:walletId           餘額、狀態、今日計數、近期交易
 //   GET  /:walletId/ledger    完整交易帳本
 //   GET  /:walletId/alerts    家屬通知（風控攔截／凍結紀錄）
@@ -7,8 +8,9 @@
 import { Router } from 'express';
 import { fhir } from '../fhirClient.js';
 import { config, OBS_CATEGORY, ACCOUNT_STATUS } from '../config.js';
-import { accountView, ledgerView, patientView } from '../mappers.js';
-import { findAccountByWallet, patientRefOf, recompute, setStatus, today } from '../services/wallet.js';
+import { accountView, ledgerView, patientView, patientPinHash } from '../mappers.js';
+import { findAccountByWallet, findPatientByPhone, patientRefOf, recompute, setStatus, today } from '../services/wallet.js';
+import { verifyPin } from '../services/auth.js';
 import { pushAlert, getAlerts } from '../services/notify.js';
 
 const router = Router();
@@ -18,6 +20,26 @@ async function loadAccount(req, res) {
   if (!account) { res.status(404).json({ error: '查無此錢包。' }); return null; }
   return account;
 }
+
+// 消費者登入：手機號碼 + PIN → 回傳 walletId（App 之後一律以 walletId 操作）。
+// 安全性：無論手機是否存在、PIN 對錯，失敗一律回相同 401 訊息，避免列舉手機號碼。
+// 須先於 /:walletId 等參數路由之前宣告，避免被誤判為 walletId。
+router.post('/login', async (req, res, next) => {
+  try {
+    const { phone, pin } = req.body || {};
+    if (!phone || !pin) return res.status(400).json({ error: '請輸入手機號碼與 PIN。' });
+    const patient = await findPatientByPhone(phone);
+    const stored = patient ? patientPinHash(patient) : null;
+    if (!patient || !stored || !verifyPin(pin, stored)) {
+      return res.status(401).json({ error: '手機號碼或 PIN 錯誤。' });
+    }
+    const v = patientView(patient);
+    if (!v.walletId) return res.status(409).json({ error: '此帳號尚未綁定錢包。' });
+    res.json({ ok: true, walletId: v.walletId, name: v.name });
+  } catch (e) {
+    next(e);
+  }
+});
 
 // 錢包總覽（消費者數位卡）
 router.get('/:walletId', async (req, res, next) => {

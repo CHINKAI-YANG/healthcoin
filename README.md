@@ -5,7 +5,7 @@
 使用者每日步行數據，透過 **HL7 FHIR（R4）** 轉譯為可信的健康憑證（`Observation`），
 依固定規則發放「健康幣」；健康幣僅能於特約健康商店核銷營養品、醫療輔具等健康物資，
 **不可兌換現金、不可轉讓、僅限白名單健康物資**。所有資料以標準 FHIR 資源儲存並上傳至
-FHIR R4 伺服器（預設 `https://tzuchi-fhir.ddns.net/fhir`）。
+你指定的 FHIR R4 伺服器（由環境變數 `FHIR_BASE_URL` 設定，**必填、無預設值**）。
 
 ```
 穿戴/手機/手環 ──► 4 個操作端（HTML）──► Node.js 後端（兩子系統）──► FHIR R4 伺服器
@@ -23,16 +23,16 @@ FHIR R4 伺服器（預設 `https://tzuchi-fhir.ddns.net/fhir`）。
 
 | 檔案 | 操作端 | 對應情境 | 說明 |
 |------|--------|----------|------|
-| `public/app.html` | 📱 **消費者 App** | 情境一、四 | 數位卡、走路賺幣、出示條碼、交易明細、**家屬一鍵凍結** |
+| `public/app.html` | 📱 **消費者 App** | 情境一、四 | **手機號碼 + PIN 登入**、數位卡、走路賺幣、出示條碼、交易明細、**家屬一鍵凍結** |
 | `public/kiosk.html` | 🏘️ **社區節點 Kiosk** | 情境二 | 無手機長者以**手環 UID 批次同步**，大字＋語音的無障礙回饋 |
 | `public/pos.html` | 🏪 **特約店 POS** | 情境三、四 | 掃碼核銷健康物資，內建**風控閘道器**；商戶端**匿名**（只見 walletId） |
-| `public/admin.html` | 🗂️ **發卡管理端** | — | 註冊使用者、發給虛擬錢包、錢包總覽（需密碼登入） |
+| `public/admin.html` | 🗂️ **發卡管理端** | — | 註冊使用者（姓名／手機／PIN／手環）、發給虛擬錢包、錢包總覽（需密碼登入） |
 
 ## FHIR 資源模型（核心四資源）
 
 | 模組 | FHIR Resource | 用途與防錯 |
 |------|---------------|------------|
-| 使用者身分 | `Patient` | 真實身分主體；以虛擬 `walletId`（UUID）對外識別（關聯阻斷） |
+| 使用者身分 | `Patient` | 真實身分主體；以虛擬 `walletId`（UUID）對外識別（關聯阻斷）；可選帶手機號碼（登入帳號）與 PIN 雜湊（`identifier` / `telecom` / `extension`） |
 | 步數憑證 | `Observation`（category `activity`） | 健康數據引擎產出的可信憑證，含步數與心率 component |
 | 健康幣帳本 | `Observation`（category `health-coin-ledger`） | 每筆收/支以**帶號值**記錄，餘額＝帳本即時加總（流水帳先行） |
 | 健康幣錢包 | `Account`（status `active`/`on-hold`） | 錢包主體；快取餘額/每日計數；凍結＝`on-hold`（FHIR 合法值） |
@@ -60,9 +60,14 @@ FHIR R4 伺服器（預設 `https://tzuchi-fhir.ddns.net/fhir`）。
 需求：Node.js 18 以上（內建 `fetch` 與 `crypto.randomUUID`）。
 
 ```bash
-npm install        # 僅 express
-npm start          # 預設 http://localhost:3100
+npm install                  # 僅 express
+cp .env.example .env         # 複製設定範本
+# 編輯 .env，填入 FHIR_BASE_URL（必填、無預設值）
+npm start                    # 預設 http://localhost:3100
 ```
+
+> ⚠ **`FHIR_BASE_URL` 為必填**：未設定時 `npm start` / `npm run seed` 會印出錯誤並中止（exit 1）。
+> 啟動時會自動載入專案根目錄的 `.env`（無相依套件、不需安裝 dotenv；**已存在的環境變數優先**）。
 
 開啟瀏覽器：
 
@@ -79,28 +84,33 @@ npm run seed
 ```
 
 會建立企劃書情境的範例（小明／林阿公／王阿嬤），完成發幣與一筆核銷，
-並印出各自的 `walletId`，於消費者 App 貼上即可操作。
+並印出可登入的手機號碼與 PIN（小明 `0911111111`／`1234`、林阿公 `0922222222`／`5678`），於消費者 App 登入即可操作。
 
-> ⚠ **網路需求**：預設 `FHIR_BASE_URL` 指向 `https://tzuchi-fhir.ddns.net/fhir`。
-> 請在**能連線該伺服器的電腦**執行 `npm start` / `npm run seed`。
-> 若於受限環境（雲端沙箱等）外連被擋，請改用 `npm test`（內建記憶體版 FHIR 跑完整流程），
-> 或將 `FHIR_BASE_URL` 指向可連線的 FHIR R4 伺服器。
+> ⚠ **網路需求**：請先將 `FHIR_BASE_URL` 指向可連線且允許寫入的 FHIR R4 伺服器
+> （例如慈濟測試站 `https://tzuchi-fhir.ddns.net/fhir` 或公開的 `https://hapi.fhir.org/baseR4`），
+> 並在**能連線該伺服器的電腦**執行 `npm start` / `npm run seed`。
+> 若於受限環境（雲端沙箱等）外連被擋，請改用 `npm test`（內建記憶體版 FHIR 跑完整流程）。
 
 ## 操作流程（對應四大情境）
 
-1. **情境一・上班族即時**：消費者 App 輸入今日累計步數＋平均心率 → 同步發幣（心率達標享 ×1.2）。
+> **登入（消費者 App）**：使用者以**手機號碼 + PIN** 登入 —— 手機號碼好記、不必背 36 碼 UUID。
+> PIN 於發卡時由系統產生 6 位數並**一次性顯示**（亦可由管理端自訂），登入查驗採 scrypt 雜湊比對。
+> 仍保留「進階：用 walletId 登入」。`walletId`（UUID）維持為**商戶端唯一識別碼**：POS 不需登入、永不見姓名（關聯阻斷）。
+
+1. **情境一・上班族即時**：消費者 App 以手機 + PIN 登入，輸入今日累計步數＋平均心率 → 同步發幣（心率達標享 ×1.2）。
 2. **情境二・偏鄉長者**：手機族於 App 同步；無手機長者由社區幹事在 **Kiosk** 以手環 UID 批次同步（以 `Bundle` 上傳，大字＋語音回饋）。
 3. **情境三・特約店核銷**：POS 掃 `walletId` → 選白名單健康物資 → 核銷扣款（匿名、不顯示姓名）。
 4. **情境四・家屬防禦**：卡片遺失時，App **一鍵凍結**（→ `on-hold`）；POS 對凍結帳戶／非白名單品項／超單日上限**自動攔截並通知家屬**。
 
-## 設定（環境變數，皆有預設值）
+## 設定（環境變數）
 
 複製 `.env.example` 為 `.env` 後可覆寫；或直接以環境變數帶入。
+啟動時會自動載入根目錄 `.env`（無相依套件；**已存在的環境變數優先**）。
 
 | 變數 | 預設 | 說明 |
 |------|------|------|
 | `PORT` | `3100` | 後端服務埠 |
-| `FHIR_BASE_URL` | `https://tzuchi-fhir.ddns.net/fhir` | 目標 FHIR 伺服器 |
+| `FHIR_BASE_URL` | **（必填、無預設）** | 目標 FHIR 伺服器；未設定則 `npm start`／`npm run seed` 報錯中止（exit 1） |
 | `TENANT_TAG` | `healthvault-demo` | 租戶標記（多人共用伺服器請改唯一字串） |
 | `STEPS_PER_COIN` | `1000` | 發幣匯率 |
 | `AEROBIC_WEIGHT` | `1.2` | 有氧加權上限 |
@@ -124,6 +134,7 @@ npm test
 （`test/mock-fhir-server.js`，模仿 R4 的 CRUD/search/transaction），完整跑過
 「同步發幣 → 批次同步 → 核銷 → 風控 → 凍結」流程，並驗證：
 
+- 消費者登入：手機 + 正確 PIN → 取回 walletId；錯誤 PIN／未註冊手機 → 同訊息 401（不洩漏帳號是否存在）；同手機重複註冊 → 409；PIN 格式不符 → 400；系統自動產生的 PIN 可登入
 - 情境一：8,500 步＋有氧心率 → **9 幣**；無心率 → 8 幣
 - 發幣冪等：相同累計快照重送 → 不重複發幣
 - 每日快照增量：同日多次同步只補發增量
@@ -134,7 +145,7 @@ npm test
 - 情境四：非白名單／超單日上限／凍結 → 攔截並通知家屬；一鍵凍結＝`on-hold`
 - 帳本一致性：餘額＝帳本帶號加總（流水帳先行）
 
-> 目前 39 項斷言全數通過。要對真正的 FHIR 伺服器整合測試，請在能連外網的電腦
+> 目前 47 項斷言全數通過。要對真正的 FHIR 伺服器整合測試，請在能連外網的電腦
 > `npm start` 與 `npm run seed`。
 
 ## 專案結構
@@ -154,17 +165,18 @@ health-coin/                 # repo 根目錄
 │   ├── services/
 │   │   ├── minting.js         # 發幣規則（匯率/加權/上限/防偽）
 │   │   ├── wallet.js          # 錢包與帳本（流水帳先行、餘額重算、冪等、核銷、凍結）
+│   │   ├── auth.js            # 消費者登入：手機正規化 + PIN scrypt 雜湊/驗證（無相依）
 │   │   ├── catalog.js         # 健康物資白名單
 │   │   └── notify.js          # 家屬即時通知
 │   └── routes/
 │       ├── users.js           # /api/users   發卡與使用者管理（需授權）
 │       ├── engine.js          # /api/engine  健康數據引擎（sync / batch-sync）
-│       ├── wallet.js          # /api/wallet  錢包查詢 / 凍結 / 通知
+│       ├── wallet.js          # /api/wallet  登入（手機+PIN）/ 錢包查詢 / 凍結 / 通知
 │       └── pos.js             # /api/pos     特約店核銷（匿名 + 風控）
 ├── scripts/seed.js            # 灌入四大情境範例
 └── test/
     ├── mock-fhir-server.js    # 本地端記憶體版 FHIR（測試用）
-    └── run.js                 # 端對端測試（39 項斷言）
+    └── run.js                 # 端對端測試（47 項斷言）
 ```
 
 ## 模型化備註

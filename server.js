@@ -106,6 +106,14 @@ a.alt{background:#e8f0ec;color:#1f3a33}
 
 // 直接執行時啟動（被測試 import 時不啟動）
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  if (!config.fhirBaseUrl) {
+    console.error('\n[設定錯誤] 未設定 FHIR_BASE_URL —— 目標 FHIR 伺服器位址為必填，無預設值。');
+    console.error('請於專案根目錄建立 .env（可複製 .env.example）並填入，或以環境變數帶入，例如：');
+    console.error('  FHIR_BASE_URL=https://tzuchi-fhir.ddns.net/fhir   # 慈濟 FHIR 測試站');
+    console.error('  FHIR_BASE_URL=https://hapi.fhir.org/baseR4        # 公開 HAPI 測試站');
+    console.error('（若僅需本機驗證流程而不連外，請改用 npm test，內建記憶體版 FHIR。）\n');
+    process.exit(1);
+  }
   const app = createApp();
   app.listen(config.port, () => {
     console.log(`\n  健康幣 HealthVault`);

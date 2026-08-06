@@ -44,13 +44,21 @@ h3{margin:2px 0 8px;font-size:15px}
 
   <div class="card" id="loginCard">
     <h3>登入錢包</h3>
-    <p class="muted">貼上你的錢包 walletId（由發卡管理端發給；或先到管理端註冊）。</p>
-    <label>錢包 walletId</label>
-    <input id="walletInput" placeholder="例如 3f9c…（UUID）">
+    <p class="muted">輸入你的手機號碼與 PIN 碼（由發卡管理端發給；或先到管理端註冊領取）。</p>
+    <label>手機號碼</label>
+    <input id="phoneInput" inputmode="tel" autocomplete="tel" placeholder="例如 0912345678">
+    <label>PIN 碼</label>
+    <input id="pinInput" inputmode="numeric" type="password" autocomplete="off" placeholder="4–6 位數字">
     <div class="row" style="margin-top:10px">
-      <button class="btn" id="loginBtn" style="flex:1">開啟錢包</button>
+      <button class="btn" id="loginBtn" style="flex:1">登入</button>
     </div>
     <div class="msg err" id="loginMsg"></div>
+    <p class="muted" style="margin-top:12px"><a href="#" id="advToggle" style="color:var(--teal-d)">進階：改用 walletId 登入</a></p>
+    <div id="advBox" class="hide">
+      <label>錢包 walletId</label>
+      <input id="walletInput" placeholder="例如 3f9c…（UUID）">
+      <button class="btn ghost" id="walletLoginBtn" style="width:100%;margin-top:8px">用 walletId 開啟</button>
+    </div>
   </div>
 
   <div id="main" class="hide">
@@ -166,7 +174,23 @@ function setMsg(sel, text, kind) { const el = $(sel); el.textContent = text; el.
 
 async function init() {
   try { CFG = await api('GET', '/api/config'); } catch (e) { /* ignore */ }
-  $('#loginBtn').addEventListener('click', () => openWallet($('#walletInput').value));
+
+  async function loginByPhone() {
+    const phone = $('#phoneInput').value.trim();
+    const pin = $('#pinInput').value.trim();
+    if (!phone || !pin) { setMsg('#loginMsg', '請輸入手機號碼與 PIN。', 'err'); return; }
+    try {
+      const r = await api('POST', '/api/wallet/login', { phone, pin });
+      $('#pinInput').value = '';
+      await openWallet(r.walletId);
+    } catch (e) {
+      setMsg('#loginMsg', '登入失敗：' + e.message, 'err');
+    }
+  }
+  $('#loginBtn').addEventListener('click', loginByPhone);
+  $('#pinInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') loginByPhone(); });
+  $('#advToggle').addEventListener('click', (e) => { e.preventDefault(); $('#advBox').classList.toggle('hide'); });
+  $('#walletLoginBtn').addEventListener('click', () => openWallet($('#walletInput').value));
   $('#walletInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') openWallet($('#walletInput').value); });
   $('#reloadBtn').addEventListener('click', refresh);
 

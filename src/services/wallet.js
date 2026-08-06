@@ -15,6 +15,7 @@ import {
   patientView,
 } from '../mappers.js';
 import { entitledCoins } from './minting.js';
+import { normalizePhone } from './auth.js';
 
 export const today = () => new Date().toISOString().slice(0, 10);
 const dayOf = (iso) => String(iso || '').slice(0, 10);
@@ -27,6 +28,13 @@ export async function findAccountByWallet(walletId) {
 
 export async function findPatientByWristband(uid) {
   const ps = await fhir.search('Patient', { identifier: `${SYSTEMS.wristband}|${uid}` });
+  return ps[0] || null;
+}
+
+export async function findPatientByPhone(phone) {
+  const norm = normalizePhone(phone);
+  if (!norm) return null;
+  const ps = await fhir.search('Patient', { identifier: `${SYSTEMS.phone}|${norm}` });
   return ps[0] || null;
 }
 

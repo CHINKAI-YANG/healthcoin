@@ -11,15 +11,19 @@ const coinQuantity = (value) => ({
 });
 
 // ── Patient（使用者）──────────────────────────────────────────
-export function buildPatient({ name, walletId, wristbandUid }) {
+export function buildPatient({ name, walletId, wristbandUid, phone, pinHash }) {
   const identifier = [{ system: SYSTEMS.walletId, value: walletId }];
   if (wristbandUid) identifier.push({ system: SYSTEMS.wristband, value: wristbandUid });
-  return {
+  if (phone) identifier.push({ system: SYSTEMS.phone, value: phone });
+  const patient = {
     resourceType: 'Patient',
     active: true,
     identifier,
     name: name ? [{ text: name }] : undefined,
   };
+  if (phone) patient.telecom = [{ system: 'phone', value: phone, use: 'mobile' }]; // FHIR 慣用聯絡欄
+  if (pinHash) patient.extension = [{ url: EXT.pinHash, valueString: pinHash }]; // 登入 PIN 雜湊
+  return patient;
 }
 
 export function patientView(p) {
@@ -28,8 +32,14 @@ export function patientView(p) {
     name: p.name?.[0]?.text || p.name?.[0]?.family || '',
     walletId: p.identifier?.find((i) => i.system === SYSTEMS.walletId)?.value || null,
     wristbandUid: p.identifier?.find((i) => i.system === SYSTEMS.wristband)?.value || null,
+    phone: p.identifier?.find((i) => i.system === SYSTEMS.phone)?.value || null,
+    hasPin: (p.extension || []).some((e) => e.url === EXT.pinHash), // 是否已設定登入 PIN（不外洩雜湊）
   };
 }
+
+// 取出 Patient 上的 PIN 雜湊（僅供登入驗證用，勿放進對外 view）。
+export const patientPinHash = (p) =>
+  (p.extension || []).find((e) => e.url === EXT.pinHash)?.valueString || null;
 
 // ── Account（健康幣錢包）─────────────────────────────────────
 export function buildAccount({ patientRef, walletId, name }) {

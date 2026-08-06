@@ -79,6 +79,7 @@ export const SYSTEMS = {
   // 虛擬錢包 UUID：同時掛在 Patient 與 Account 上作為對外識別（關聯阻斷：對商戶只露 UUID）
   walletId: 'http://healthvault.tw/fhir/wallet-id',
   wristband: 'http://healthvault.tw/fhir/wristband-uid', // 無手機長者的手環 UID（Kiosk 代同步用）
+  phone: 'http://healthvault.tw/fhir/phone', // 使用者手機號碼（消費者 App 登入帳號）
   txnType: 'http://healthvault.tw/fhir/txn-type', // 帳本交易類別 earn/spend/adjust
   obsCategory: 'http://healthvault.tw/fhir/observation-category',
   idempotency: 'http://healthvault.tw/fhir/idempotency-key', // 冪等鍵（杜絕重複入帳/重複扣款）
@@ -96,6 +97,7 @@ export const EXT = {
   frozenReason: 'http://healthvault.tw/fhir/ext/frozen-reason',
   txnDetail: 'http://healthvault.tw/fhir/ext/txn-detail', // 帳本明細 JSON（商戶/品項/步數/加權）
   stepDetail: 'http://healthvault.tw/fhir/ext/step-detail', // 步數憑證明細 JSON
+  pinHash: 'http://healthvault.tw/fhir/ext/pin-hash', // 消費者登入 PIN 的 scrypt 雜湊（salt:hash，永不存明碼）
 };
 
 // Observation 分類碼：步數憑證 vs 健康幣帳本（同一 Patient 下以 category 區分）

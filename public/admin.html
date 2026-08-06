@@ -43,6 +43,10 @@ th{color:#6b7c76;font-weight:600}
       <h3>➕ 註冊使用者並發卡</h3>
       <div class="row">
         <div style="flex:2"><label>姓名</label><input id="name" placeholder="例如 王阿嬤"></div>
+        <div style="flex:2"><label>手機號碼（App 登入帳號・選填）</label><input id="phone" inputmode="tel" placeholder="例如 0912345678"></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div style="flex:2"><label>PIN（選填，留空自動產生 6 位數）</label><input id="pin" inputmode="numeric" placeholder="4–6 位數字"></div>
         <div style="flex:2"><label>手環 UID（無手機長者選填）</label><input id="wb" placeholder="例如 WB-AMA-001"></div>
         <button class="btn" id="regBtn">發卡</button>
       </div>
@@ -52,8 +56,8 @@ th{color:#6b7c76;font-weight:600}
 
     <div class="card">
       <div class="row" style="justify-content:space-between"><h3>👛 錢包總覽</h3><button class="btn ghost" id="reloadBtn">重新整理</button></div>
-      <table><thead><tr><th>姓名</th><th>walletId（條碼）</th><th>手環</th><th>狀態</th><th>餘額</th></tr></thead>
-      <tbody id="rows"><tr><td colspan="5" style="color:#94a3b8">登入後載入…</td></tr></tbody></table>
+      <table><thead><tr><th>姓名</th><th>walletId（條碼）</th><th>手機</th><th>手環</th><th>狀態</th><th>餘額</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="6" style="color:#94a3b8">登入後載入…</td></tr></tbody></table>
     </div>
   </div>
 </div>
@@ -81,9 +85,9 @@ async function loadList() {
   try {
     const list = await api('GET', '/api/users');
     $('#rows').innerHTML = list.length
-      ? list.map((u) => `<tr><td>${u.name || '—'}</td><td class="code">${u.walletId}</td><td>${u.wristbandUid || '—'}</td><td>${pill(u.status)}</td><td><b>${u.balance}</b></td></tr>`).join('')
-      : '<tr><td colspan="5" style="color:#94a3b8">尚無使用者，請先註冊。</td></tr>';
-  } catch (e) { $('#rows').innerHTML = '<tr><td colspan="5" style="color:#b91c1c">' + e.message + '</td></tr>'; }
+      ? list.map((u) => `<tr><td>${u.name || '—'}</td><td class="code">${u.walletId}</td><td>${u.phone || '—'}${u.phone && !u.hasPin ? '（未設PIN）' : ''}</td><td>${u.wristbandUid || '—'}</td><td>${pill(u.status)}</td><td><b>${u.balance}</b></td></tr>`).join('')
+      : '<tr><td colspan="6" style="color:#94a3b8">尚無使用者，請先註冊。</td></tr>';
+  } catch (e) { $('#rows').innerHTML = '<tr><td colspan="6" style="color:#b91c1c">' + e.message + '</td></tr>'; }
 }
 
 async function login() {
@@ -105,9 +109,19 @@ async function register() {
   $('#regMsg').textContent = '';
   try {
     const wb = $('#wb').value.trim();
-    const u = await api('POST', '/api/users', { name, wristbandUid: wb || undefined });
-    $('#newCard').innerHTML = '<div class="new">✅ 已發卡給 <b>' + u.name + '</b><br>walletId（條碼）：<span class="code">' + u.walletId + '</span><br>請交付使用者於消費者 App 登入，或印製為實體卡／靜態條碼。</div>';
-    $('#name').value = ''; $('#wb').value = '';
+    const phone = $('#phone').value.trim();
+    const pin = $('#pin').value.trim();
+    const u = await api('POST', '/api/users', {
+      name,
+      wristbandUid: wb || undefined,
+      phone: phone || undefined,
+      pin: pin || undefined,
+    });
+    const loginLine = u.phone
+      ? '<br>App 登入：手機 <b>' + u.phone + '</b>　PIN <b class="code">' + (u.pin || '（已設定）') + '</b><br><span style="color:#b45309">⚠ PIN 僅顯示這一次，請立即抄下並轉交使用者。</span>'
+      : '<br>請交付使用者於消費者 App 以 walletId 登入，或印製為實體卡／靜態條碼。';
+    $('#newCard').innerHTML = '<div class="new">✅ 已發卡給 <b>' + u.name + '</b><br>walletId（條碼）：<span class="code">' + u.walletId + '</span>' + loginLine + '</div>';
+    $('#name').value = ''; $('#wb').value = ''; $('#phone').value = ''; $('#pin').value = '';
     loadList();
   } catch (e) { $('#regMsg').textContent = e.message; }
 }

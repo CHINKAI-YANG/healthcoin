@@ -33,15 +33,15 @@ try {
   const health = await api('GET', '/api/health');
   if (!health.ok) console.warn('⚠ FHIR 健檢未通過，仍嘗試寫入：', health.error || '');
 
-  // 情境一：上班族小明（即時 + 有氧）
-  const ming = await api('POST', '/api/users', { name: '小明' });
+  // 情境一：上班族小明（即時 + 有氧）。有手機 → 以手機號碼 + PIN 登入 App。
+  const ming = await api('POST', '/api/users', { name: '小明', phone: '0911111111', pin: '1234' });
   const s1 = await api('POST', '/api/engine/sync', { walletId: ming.walletId, steps: 8500, heartRate: 130, date: TODAY });
-  console.log(`情境一 小明      walletId=${ming.walletId}  發幣 ${s1.minted}（有氧加權）餘額 ${s1.balance}`);
+  console.log(`情境一 小明      手機 ${ming.phone} PIN ${ming.pin}  發幣 ${s1.minted}（有氧加權）餘額 ${s1.balance}  walletId=${ming.walletId}`);
 
-  // 情境二：林阿公（手機背景上傳）
-  const gong = await api('POST', '/api/users', { name: '林阿公' });
+  // 情境二：林阿公（手機背景上傳）。有手機 → 以手機號碼 + PIN 登入 App。
+  const gong = await api('POST', '/api/users', { name: '林阿公', phone: '0922222222', pin: '5678' });
   const s2 = await api('POST', '/api/engine/sync', { walletId: gong.walletId, steps: 5000, date: TODAY });
-  console.log(`情境二 林阿公    walletId=${gong.walletId}  發幣 ${s2.minted} 餘額 ${s2.balance}`);
+  console.log(`情境二 林阿公    手機 ${gong.phone} PIN ${gong.pin}  發幣 ${s2.minted} 餘額 ${s2.balance}  walletId=${gong.walletId}`);
 
   // 情境二：王阿嬤（無手機，手環 + Kiosk 批次同步），並預先跨日累積供核銷展示
   const ama = await api('POST', '/api/users', { name: '王阿嬤', wristbandUid: 'WB-AMA-001' });
@@ -54,7 +54,7 @@ try {
   const rx = await api('POST', '/api/pos/redeem', { walletId: ama.walletId, itemCode: 'BPCUFF', posId: 'POS-藥局A' });
   console.log(`情境三 核銷      王阿嬤 核銷血壓計 -${rx.cost}，餘額 ${rx.balance}`);
 
-  console.log('\n完成！開啟 http://localhost:' + config.port + '/ ，於消費者 App 貼上上述任一 walletId 即可操作。');
+  console.log('\n完成！開啟 http://localhost:' + config.port + '/ ，於消費者 App 以上述手機號碼 + PIN 登入（或進階改用 walletId）即可操作。');
   console.log('（提醒：請於能連外網的電腦執行，且 FHIR_BASE_URL 指向可寫入的伺服器。）\n');
 } catch (e) {
   console.error('\n灌入失敗：', e.message);

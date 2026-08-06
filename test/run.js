@@ -54,6 +54,20 @@ try {
   const cfg = (await J('GET', '/api/config')).data;
   ok(cfg.stepsPerCoin === 1000 && cfg.aerobicWeight === 1.2 && cfg.dailyEarnCap === 50 && cfg.dailySpendCap === 100, '規則設定正確（1000步=1幣・×1.2・上限50/100）');
 
+  console.log('\n[消費者登入] 手機號碼 + PIN（walletId 仍保留給商戶端識別）');
+  const pUser = (await J('POST', '/api/users', { name: '手機族', phone: '0912-345 678', pin: '4321' })).data;
+  ok(pUser.pin === '4321' && pUser.phone === '0912345678' && pUser.hasPin === true, '註冊帶手機與 PIN：一次性回傳 PIN、手機正規化、標記已設 PIN');
+  const genUser = (await J('POST', '/api/users', { name: '系統配PIN', phone: '0900000001' })).data;
+  ok(/^\d{6}$/.test(genUser.pin || ''), '未帶 PIN → 系統自動產生 6 位數 PIN');
+  ok((await J('POST', '/api/users', { name: '撞號', phone: '0912345678' })).status === 409, '同手機號碼重複註冊 → 409 拒絕');
+  ok((await J('POST', '/api/users', { name: '怪PIN', phone: '0933333333', pin: '12' })).status === 400, 'PIN 格式不符（少於 4 碼）→ 400');
+  const okLogin = await J('POST', '/api/wallet/login', { phone: '0912 345 678', pin: '4321' });
+  ok(okLogin.status === 200 && okLogin.data.walletId === pUser.walletId, '手機 + 正確 PIN → 登入成功並取回正確 walletId（手機格式寬鬆比對）');
+  ok((await J('POST', '/api/wallet/login', { phone: '0912345678', pin: '0000' })).status === 401, '錯誤 PIN → 401 拒絕');
+  ok((await J('POST', '/api/wallet/login', { phone: '0988888888', pin: '4321' })).status === 401, '未註冊手機 → 401（與錯誤 PIN 同訊息，不洩漏帳號是否存在）');
+  const genLogin = await J('POST', '/api/wallet/login', { phone: '0900000001', pin: genUser.pin });
+  ok(genLogin.status === 200 && genLogin.data.walletId === genUser.walletId, '以系統產生的 PIN 登入成功');
+
   console.log('\n[情境一] 上班族即時：8,500 步 + 有氧心率 → 9 幣');
   const ming = (await register('小明')).data;
   ok(/^[0-9a-f-]{36}$/.test(ming.walletId), '註冊發給虛擬錢包 walletId（UUID）');
